@@ -1,8 +1,8 @@
 import { Players } from "@rbxts/services";
 import { Destructible, Node } from "types";
 
-if (_G["program id"]) throw "This program is already running!";
-_G["program id"] = true;
+if (_G["tsb-script"]) throw "This program is already running!";
+_G["tsb-script"] = true;
 
 /************************************************************
  * CONFIGURATIONS
@@ -99,7 +99,7 @@ class Bin {
 class BaseComponent<T extends Instance> {
 	protected bin = new Bin();
 
-	constructor(protected readonly instance: T) {}
+	constructor(readonly instance: T) {}
 
 	/**
 	 * Terminates the component and all functionality.
@@ -109,13 +109,77 @@ class BaseComponent<T extends Instance> {
 	}
 }
 
+class RigComponent extends BaseComponent<Model> {
+	public readonly root: BasePart;
+	public readonly humanoid: Humanoid;
+
+	constructor(instance: Model) {
+		super(instance);
+
+		const root = instance.WaitForChild("HumanoidRootPart") as BasePart | undefined;
+		if (root === undefined) throw "Root part not found";
+		const humanoid = instance.WaitForChild("Humanoid") as Humanoid | undefined;
+		if (humanoid === undefined) throw "Humanoid not found";
+
+		this.root = root;
+		this.humanoid = humanoid;
+
+		const bin = this.bin;
+		bin.batch(
+			humanoid.Died.Connect(() => this.destroy()),
+			instance.Destroying.Connect(() => this.destroy()),
+		);
+	}
+}
+
+class CharacterComponent extends RigComponent {
+	constructor(instance: Model) {
+		super(instance);
+	}
+}
+
+class PlayerComponent extends BaseComponent<Player> {
+	public static active = new Map<Player, PlayerComponent>();
+
+	public character?: CharacterComponent;
+
+	constructor(instance: Player) {
+		super(instance);
+
+		const bin = this.bin;
+		bin.batch(
+			instance.CharacterAdded.Connect((character) => this.onCharacterAdded(character)),
+			instance.CharacterRemoving.Connect(() => this.onCharacterRemoving()),
+		);
+		bin.add(() => PlayerComponent.active.delete(instance));
+		PlayerComponent.active.set(instance, this);
+	}
+
+	protected onCharacterAdded(character: Model) {
+		this.character?.destroy();
+		this.character = new CharacterComponent(character);
+	}
+
+	protected onCharacterRemoving() {
+		this.character?.destroy();
+		this.character = undefined;
+	}
+}
+
 /************************************************************
  * CONTROLLERS
  * Description: Singletons that are used once
  * Last updated: Feb. 14, 2024
  ************************************************************/
-namespace ExampleController {
-	export function __init() {}
+namespace ComponentController {
+	const onPlayerAdded = (player: Player) => new PlayerComponent(player);
+	const onPlayerRemoving = (player: Player) => PlayerComponent.active.get(player)?.destroy();
+
+	export function __init() {
+		for (const player of Players.GetPlayers()) if (player !== LocalPlayer) task.defer(onPlayerAdded, player);
+		Players.PlayerAdded.Connect(onPlayerAdded);
+		Players.PlayerRemoving.Connect(onPlayerRemoving);
+	}
 }
 
 /************************************************************
@@ -123,6 +187,6 @@ namespace ExampleController {
  * Description: Initializes and starts the runtime
  * Last updated: Feb. 14, 2024
  ************************************************************/
-ExampleController.__init();
+ComponentController.__init();
 
 export = "Initialized Successfully";
