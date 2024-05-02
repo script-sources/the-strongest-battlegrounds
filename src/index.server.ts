@@ -132,6 +132,12 @@ class RigComponent extends BaseComponent<Model> {
 	}
 }
 
+class CombatantComponent extends RigComponent {
+	constructor(instance: Model) {
+		super(instance);
+	}
+}
+
 class CharacterComponent extends RigComponent {
 	constructor(instance: Model) {
 		super(instance);
