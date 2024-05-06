@@ -1,4 +1,4 @@
-import { Players } from "@rbxts/services";
+import { Players, RunService, UserInputService } from "@rbxts/services";
 import { Destructible, Node } from "types";
 
 if (_G["tsb-script"]) throw "This program is already running!";
@@ -13,12 +13,12 @@ const SWING_DASHES = {
 	// Deadly Ninja
 	// Brutal Demon
 	// Blade Master
-	Weapon: ["rbxassetid://13380255751", 0.41],
+	WEAPON: "rbxassetid://13380255751",
 
 	// Strongest Hero
 	// Hero Hunter
 	// Destructive Cyborg
-	Melee: ["rbxassetid://10479335397", 0.37],
+	FISTS: "rbxassetid://10479335397",
 };
 
 const BALD_COMBO_TIMINGS = [0.25, 0.25, 0.25, 0.25];
@@ -176,9 +176,29 @@ class CombatantComponent extends RigComponent {
 		if (current !== undefined) this.combo = current - 2;
 	}
 
-	protected onNormalAttack() {}
+	protected onNormalAttack() {
+		const origin = AgentController.root.Position;
+		const position = this.root.Position;
+		const distance = position.sub(origin).mul(XZ).Magnitude;
+		if (distance < 12) CounterController.block(this, 0.27);
+	}
 
-	protected onDashAttack() {}
+	protected onDashAttack() {
+		const { bin, root } = this;
+		let inRange = false;
+		const connection = RunService.Heartbeat.Connect(() => {
+			const origin = AgentController.root.Position;
+			const position = root.Position;
+			const distance = position.sub(origin).mul(XZ).Magnitude;
+			const inRangeNow = distance < 14;
+			if (inRange !== inRangeNow) {
+				if (inRange) CounterController.addBlock(this);
+				else CounterController.removeBlock(this);
+			}
+			inRange = inRangeNow;
+		});
+		bin.add(connection);
+	}
 
 	protected onAnimationPlayed(track: AnimationTrack) {}
 }
@@ -196,6 +216,15 @@ class BaldCombatantComponent extends CombatantComponent {
 			CounterController.block(this, BALD_COMBO_TIMINGS[this.combo]);
 		}
 	}
+
+	protected onAnimationPlayed(track: AnimationTrack): void {
+		const animation = track.Animation;
+		if (!animation) return;
+		const animationId = animation.AnimationId;
+		if (animationId === SWING_DASHES.FISTS) {
+			this.onDashAttack();
+		}
+	}
 }
 
 class HunterCombatantComponent extends CombatantComponent {
@@ -209,6 +238,15 @@ class HunterCombatantComponent extends CombatantComponent {
 		const distance = position.sub(origin).mul(XZ).Magnitude;
 		if (distance < 12) {
 			CounterController.block(this, HUNTER_COMBO_TIMINGS[this.combo]);
+		}
+	}
+
+	protected onAnimationPlayed(track: AnimationTrack): void {
+		const animation = track.Animation;
+		if (!animation) return;
+		const animationId = animation.AnimationId;
+		if (animationId === SWING_DASHES.FISTS) {
+			this.onDashAttack();
 		}
 	}
 }
@@ -226,6 +264,15 @@ class CyborgCombatantComponent extends CombatantComponent {
 			CounterController.block(this, CYBORG_COMBO_TIMINGS[this.combo]);
 		}
 	}
+
+	protected onAnimationPlayed(track: AnimationTrack): void {
+		const animation = track.Animation;
+		if (!animation) return;
+		const animationId = animation.AnimationId;
+		if (animationId === SWING_DASHES.FISTS) {
+			this.onDashAttack();
+		}
+	}
 }
 
 class NinjaCombatantComponent extends CombatantComponent {
@@ -239,6 +286,15 @@ class NinjaCombatantComponent extends CombatantComponent {
 		const distance = position.sub(origin).mul(XZ).Magnitude;
 		if (distance < 12) {
 			CounterController.block(this, NINJA_COMBO_TIMINGS[this.combo]);
+		}
+	}
+
+	protected onAnimationPlayed(track: AnimationTrack): void {
+		const animation = track.Animation;
+		if (!animation) return;
+		const animationId = animation.AnimationId;
+		if (animationId === SWING_DASHES.WEAPON) {
+			this.onDashAttack();
 		}
 	}
 }
@@ -256,6 +312,15 @@ class BatterCombatantComponent extends CombatantComponent {
 			CounterController.block(this, BATTER_COMBO_TIMINGS[this.combo]);
 		}
 	}
+
+	protected onAnimationPlayed(track: AnimationTrack): void {
+		const animation = track.Animation;
+		if (!animation) return;
+		const animationId = animation.AnimationId;
+		if (animationId === SWING_DASHES.WEAPON) {
+			this.onDashAttack();
+		}
+	}
 }
 
 class BladeCombatantComponent extends CombatantComponent {
@@ -269,6 +334,15 @@ class BladeCombatantComponent extends CombatantComponent {
 		const distance = position.sub(origin).mul(XZ).Magnitude;
 		if (distance < 12) {
 			CounterController.block(this, BLADE_COMBO_TIMINGS[this.combo]);
+		}
+	}
+
+	protected onAnimationPlayed(track: AnimationTrack): void {
+		const animation = track.Animation;
+		if (!animation) return;
+		const animationId = animation.AnimationId;
+		if (animationId === SWING_DASHES.WEAPON) {
+			this.onDashAttack();
 		}
 	}
 }
@@ -368,28 +442,63 @@ namespace AgentController {
 }
 
 namespace CounterController {
+	let block_enabled = false;
+	let counter_enabled = false;
+
 	let blocking = false;
 	const blockables = new Set<CombatantComponent>();
 
-	export function block(component: CombatantComponent, length: number): void {
-		if (!blocking) keypress(0x46);
-		blocking = true;
+	export function addBlock(component: CombatantComponent) {
+		if (!blocking && block_enabled) {
+			keypress(0x46);
+			blocking = true;
+		}
 		blockables.add(component);
-		task.delay(length, () => {
-			blockables.delete(component);
-			if (blockables.size() === 0) {
-				keyrelease(0x46);
-				blocking = false;
-			}
-		});
+	}
+
+	export function removeBlock(component: CombatantComponent) {
+		blockables.delete(component);
+		if (block_enabled && blockables.size() === 0) {
+			keyrelease(0x46);
+			blocking = false;
+		}
+	}
+
+	export function block(component: CombatantComponent, length: number): void {
+		addBlock(component);
+		task.delay(length, () => removeBlock(component));
 	}
 
 	export function counter() {
+		if (!counter_enabled) return;
 		keypress(0x46);
 		task.delay(0.1, () => keyrelease(0x46));
 	}
 
-	export function __init() {}
+	export function setBlockEnabled(value: boolean) {
+		block_enabled = value;
+	}
+
+	export function setCounterEnabled(value: boolean) {
+		counter_enabled = value;
+	}
+
+	export function __init() {
+		UserInputService.InputBegan.Connect((input, gameProcessedEvent) => {
+			if (gameProcessedEvent) return;
+			if (input.KeyCode === Enum.KeyCode.KeypadOne) {
+				setBlockEnabled(true);
+				setCounterEnabled(true);
+			}
+		});
+
+		UserInputService.InputEnded.Connect((input) => {
+			if (input.KeyCode === Enum.KeyCode.KeypadOne) {
+				setBlockEnabled(false);
+				setCounterEnabled(false);
+			}
+		});
+	}
 }
 
 namespace ComponentController {
