@@ -1,7 +1,6 @@
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
-
 local LocalPlayer = Players.LocalPlayer
 
 local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()

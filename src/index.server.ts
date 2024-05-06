@@ -1,4 +1,4 @@
-import { Players, RunService, UserInputService } from "@rbxts/services";
+import { Players, UserInputService } from "@rbxts/services";
 import { Destructible, Node } from "types";
 
 if (_G["tsb-script"]) throw "This program is already running!";
@@ -184,20 +184,10 @@ class CombatantComponent extends RigComponent {
 	}
 
 	protected onDashAttack() {
-		const { bin, root } = this;
-		let inRange = false;
-		const connection = RunService.Heartbeat.Connect(() => {
-			const origin = AgentController.root.Position;
-			const position = root.Position;
-			const distance = position.sub(origin).mul(XZ).Magnitude;
-			const inRangeNow = distance < 14;
-			if (inRange !== inRangeNow) {
-				if (inRange) CounterController.addBlock(this);
-				else CounterController.removeBlock(this);
-			}
-			inRange = inRangeNow;
-		});
-		bin.add(connection);
+		const origin = AgentController.root.Position;
+		const position = this.root.Position;
+		const distance = position.sub(origin).mul(XZ).Magnitude;
+		if (distance < 12) CounterController.block(this, 0.27);
 	}
 
 	protected onAnimationPlayed(track: AnimationTrack) {}
@@ -216,15 +206,6 @@ class BaldCombatantComponent extends CombatantComponent {
 			CounterController.block(this, BALD_COMBO_TIMINGS[this.combo]);
 		}
 	}
-
-	protected onAnimationPlayed(track: AnimationTrack): void {
-		const animation = track.Animation;
-		if (!animation) return;
-		const animationId = animation.AnimationId;
-		if (animationId === SWING_DASHES.FISTS) {
-			this.onDashAttack();
-		}
-	}
 }
 
 class HunterCombatantComponent extends CombatantComponent {
@@ -238,15 +219,6 @@ class HunterCombatantComponent extends CombatantComponent {
 		const distance = position.sub(origin).mul(XZ).Magnitude;
 		if (distance < 12) {
 			CounterController.block(this, HUNTER_COMBO_TIMINGS[this.combo]);
-		}
-	}
-
-	protected onAnimationPlayed(track: AnimationTrack): void {
-		const animation = track.Animation;
-		if (!animation) return;
-		const animationId = animation.AnimationId;
-		if (animationId === SWING_DASHES.FISTS) {
-			this.onDashAttack();
 		}
 	}
 }
@@ -264,15 +236,6 @@ class CyborgCombatantComponent extends CombatantComponent {
 			CounterController.block(this, CYBORG_COMBO_TIMINGS[this.combo]);
 		}
 	}
-
-	protected onAnimationPlayed(track: AnimationTrack): void {
-		const animation = track.Animation;
-		if (!animation) return;
-		const animationId = animation.AnimationId;
-		if (animationId === SWING_DASHES.FISTS) {
-			this.onDashAttack();
-		}
-	}
 }
 
 class NinjaCombatantComponent extends CombatantComponent {
@@ -286,15 +249,6 @@ class NinjaCombatantComponent extends CombatantComponent {
 		const distance = position.sub(origin).mul(XZ).Magnitude;
 		if (distance < 12) {
 			CounterController.block(this, NINJA_COMBO_TIMINGS[this.combo]);
-		}
-	}
-
-	protected onAnimationPlayed(track: AnimationTrack): void {
-		const animation = track.Animation;
-		if (!animation) return;
-		const animationId = animation.AnimationId;
-		if (animationId === SWING_DASHES.WEAPON) {
-			this.onDashAttack();
 		}
 	}
 }
@@ -312,15 +266,6 @@ class BatterCombatantComponent extends CombatantComponent {
 			CounterController.block(this, BATTER_COMBO_TIMINGS[this.combo]);
 		}
 	}
-
-	protected onAnimationPlayed(track: AnimationTrack): void {
-		const animation = track.Animation;
-		if (!animation) return;
-		const animationId = animation.AnimationId;
-		if (animationId === SWING_DASHES.WEAPON) {
-			this.onDashAttack();
-		}
-	}
 }
 
 class BladeCombatantComponent extends CombatantComponent {
@@ -334,15 +279,6 @@ class BladeCombatantComponent extends CombatantComponent {
 		const distance = position.sub(origin).mul(XZ).Magnitude;
 		if (distance < 12) {
 			CounterController.block(this, BLADE_COMBO_TIMINGS[this.combo]);
-		}
-	}
-
-	protected onAnimationPlayed(track: AnimationTrack): void {
-		const animation = track.Animation;
-		if (!animation) return;
-		const animationId = animation.AnimationId;
-		if (animationId === SWING_DASHES.WEAPON) {
-			this.onDashAttack();
 		}
 	}
 }
